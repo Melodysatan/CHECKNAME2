@@ -91,7 +91,13 @@
     border-bottom: 1px solid #21212a;
     transition: background 0.15s;
   }
-  tbody tr:hover {
+  tbody tr.row-active {
+    background: #211616;
+  }
+  tbody tr.row-active:hover {
+    background: #2a1c1c;
+  }
+  tbody tr.row-idle:hover {
     background: #1a1a22;
   }
   tbody tr:last-child {
@@ -228,7 +234,15 @@ async function loadData() {
     `;
 
     const tbody = document.getElementById("table-body");
-    tbody.innerHTML = data.people.map(p => {
+
+    const sortedPeople = [...data.people].sort((a, b) => {
+      const aActive = a.status !== "กลับที่นั่ง";
+      const bActive = b.status !== "กลับที่นั่ง";
+      if (aActive === bActive) return 0;
+      return aActive ? -1 : 1;
+    });
+
+    tbody.innerHTML = sortedPeople.map(p => {
       const isBack = p.status === "กลับที่นั่ง";
       const limit = OVERTIME_LIMITS[p.status];
       const isOvertime = !isBack && limit && p.duration_seconds > limit;
@@ -236,13 +250,14 @@ async function loadData() {
       const displayLabel = isOvertime ? `เกินเวลา${p.status}` : p.status;
       const badgeCls = isOvertime ? "badge-overtime" : badgeClass(p.status);
       const warnIcon = isOvertime ? "⚠️ " : "";
+      const rowCls = isBack ? "row-idle" : "row-active";
 
       const timeHtml = isBack
         ? `<span class="time-cell idle">${formatAgo(p.duration_seconds)}</span>`
         : `<span class="time-cell">${formatDuration(p.duration_seconds)}</span>`;
 
       return `
-        <tr>
+        <tr class="${rowCls}">
           <td>
             <div class="user-cell">${p.username}</div>
           </td>
