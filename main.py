@@ -1,13 +1,8 @@
-import re
-import sqlite3
-import threading
-from datetime import datetime, date
-
 import os
 import re
 import sqlite3
 import threading
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from dotenv import load_dotenv
 load_dotenv()  # โหลดค่าจากไฟล์ .env ถ้ามี (สำหรับรันที่เครื่องตัวเอง)
@@ -170,14 +165,26 @@ def api_status():
             "duration_seconds": duration_seconds,
         })
 
-    today_str = date.today().isoformat()
+    # หาจุดเริ่มรอบกะปัจจุบัน (รีเซตทุก 08:05 และ 20:05)
+    today_0805 = now.replace(hour=8, minute=5, second=0, microsecond=0)
+    today_2005 = now.replace(hour=20, minute=5, second=0, microsecond=0)
+
+    if now >= today_2005:
+        period_start = today_2005
+    elif now >= today_0805:
+        period_start = today_0805
+    else:
+        period_start = today_2005 - timedelta(days=1)
+
+    period_start_str = period_start.isoformat()
+
     cur.execute(
         """
         SELECT activity, COUNT(*) as count FROM status_log
-        WHERE timestamp LIKE ? AND activity != 'กลับที่นั่ง' AND username LIKE '%ODOL%'
+        WHERE timestamp >= ? AND activity != 'กลับที่นั่ง' AND username LIKE '%ODOL%'
         GROUP BY activity
         """,
-        (f"{today_str}%",),
+        (period_start_str,),
     )
     activity_counts = {r["activity"]: r["count"] for r in cur.fetchall()}
     out_count = sum(1 for p in people if p["status"] != "กลับที่นั่ง")
