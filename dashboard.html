@@ -147,6 +147,7 @@
   <thead>
     <tr>
       <th>ผู้ใช้</th>
+      <th style="text-align:center;">สถานะ</th>
       <th>เวลา</th>
     </tr>
   </thead>
@@ -239,10 +240,10 @@ async function loadData() {
       return `
         <tr>
           <td>
-            <div class="user-cell">
-              ${p.username}
-              <span class="badge ${badgeCls}">${warnIcon}${displayLabel}</span>
-            </div>
+            <div class="user-cell">${p.username}</div>
+          </td>
+          <td style="text-align:center;">
+            <span class="badge ${badgeCls}">${warnIcon}${displayLabel}</span>
           </td>
           <td>${timeHtml}</td>
         </tr>
