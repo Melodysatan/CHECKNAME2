@@ -42,6 +42,7 @@
     gap: 14px;
     margin-bottom: 28px;
     flex-wrap: wrap;
+    justify-content: center;
   }
   .summary-card {
     background: linear-gradient(145deg, #1c1c24, #15151a);
@@ -49,6 +50,7 @@
     border-radius: 14px;
     padding: 18px 22px;
     min-width: 150px;
+    text-align: center;
   }
   .summary-card .label {
     font-size: 13px;
@@ -108,6 +110,15 @@
   .badge-heavy { background: #3a1717; color: #e57373; }
   .badge-light { background: #3a2e10; color: #e0a83a; }
   .badge-food { background: #3a2e10; color: #e0a83a; }
+  .badge-overtime {
+    background: #4a1212;
+    color: #ff6b6b;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,107,0.5); }
+    50% { box-shadow: 0 0 0 5px rgba(255,107,107,0.15); }
+  }
   .time-cell {
     color: #c5c5d0;
     font-family: "Consolas", monospace;
@@ -165,6 +176,12 @@ function spawnEmoji() {
 setInterval(spawnEmoji, 1200);
 for (let i = 0; i < 6; i++) setTimeout(spawnEmoji, i * 400);
 
+const OVERTIME_LIMITS = {
+  "ปวดหนัก": 20 * 60,
+  "ปวดน้อย": 6 * 60,
+  "กินข้าว": 30 * 60,
+};
+
 function badgeClass(status) {
   if (status === "กลับที่นั่ง") return "badge-back";
   if (status === "ปวดหนัก") return "badge-heavy";
@@ -208,15 +225,23 @@ async function loadData() {
     const tbody = document.getElementById("table-body");
     tbody.innerHTML = data.people.map(p => {
       const isBack = p.status === "กลับที่นั่ง";
+      const limit = OVERTIME_LIMITS[p.status];
+      const isOvertime = !isBack && limit && p.duration_seconds > limit;
+
+      const displayLabel = isOvertime ? `เกินเวลา${p.status}` : p.status;
+      const badgeCls = isOvertime ? "badge-overtime" : badgeClass(p.status);
+      const warnIcon = isOvertime ? "⚠️ " : "";
+
       const timeHtml = isBack
         ? `<span class="time-cell idle">${formatAgo(p.duration_seconds)}</span>`
         : `<span class="time-cell">${formatDuration(p.duration_seconds)}</span>`;
+
       return `
         <tr>
           <td>
             <div class="user-cell">
               ${p.username}
-              <span class="badge ${badgeClass(p.status)}">${p.status}</span>
+              <span class="badge ${badgeCls}">${warnIcon}${displayLabel}</span>
             </div>
           </td>
           <td>${timeHtml}</td>
