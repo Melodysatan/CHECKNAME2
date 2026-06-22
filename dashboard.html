@@ -193,6 +193,23 @@ const OVERTIME_LIMITS = {
   "กินข้าว": 30 * 60,
 };
 
+// เก็บรายชื่อคนที่เกินเวลาอยู่แล้ว (กันเสียงดังซ้ำทุกครั้งที่รีเฟรช)
+const overtimeAlerted = new Set();
+
+function speakAlert(username, activity) {
+  try {
+    const shortName = username.split("-").slice(0, 2).join(" ");
+    const text = `${shortName} เกินเวลา${activity}แล้ว รีบกลับที่นั่งให้ไว`;
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "th-TH";
+    utter.rate = 1;
+    utter.pitch = 1;
+    window.speechSynthesis.speak(utter);
+  } catch (err) {
+    console.warn("พูดเสียงเตือนไม่ได้", err);
+  }
+}
+
 function badgeClass(status) {
   if (status === "กลับที่นั่ง") return "badge-back";
   if (status === "ปวดหนัก") return "badge-heavy";
@@ -241,6 +258,31 @@ async function loadData() {
       if (aActive === bActive) return 0;
       return aActive ? -1 : 1;
     });
+
+    // เช็คว่ามีใครเพิ่งเกินเวลาใหม่ในรอบนี้ไหม เพื่อพูดเสียงเตือน
+    const newOvertimePeople = [];
+    const currentOvertimeUsers = new Set();
+
+    sortedPeople.forEach(p => {
+      const isBack = p.status === "กลับที่นั่ง";
+      const limit = OVERTIME_LIMITS[p.status];
+      const isOvertime = !isBack && limit && p.duration_seconds > limit;
+
+      if (isOvertime) {
+        currentOvertimeUsers.add(p.user_id);
+        if (!overtimeAlerted.has(p.user_id)) {
+          newOvertimePeople.push({ username: p.username, activity: p.status });
+        }
+      }
+    });
+
+    newOvertimePeople.forEach((p, i) => {
+      setTimeout(() => speakAlert(p.username, p.activity), i * 3000);
+    });
+
+    // อัปเดต set คนที่เกินเวลาอยู่ (ลบคนที่กลับที่นั่งแล้วออก เผื่อเกินเวลาอีกรอบจะพูดใหม่)
+    overtimeAlerted.clear();
+    currentOvertimeUsers.forEach(id => overtimeAlerted.add(id));
 
     tbody.innerHTML = sortedPeople.map(p => {
       const isBack = p.status === "กลับที่นั่ง";
