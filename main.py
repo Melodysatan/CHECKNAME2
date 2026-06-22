@@ -196,6 +196,57 @@ def api_status():
     })
 
 
+@app.route("/api/stats")
+def api_stats():
+    conn = get_conn()
+    cur = conn.cursor()
+
+    # สถิติ 7 วันล่าสุด แยกตามกิจกรรม
+    cur.execute(
+        """
+        SELECT date(timestamp) as day, activity, COUNT(*) as count
+        FROM status_log
+        WHERE activity != 'กลับที่นั่ง' AND username LIKE '%ODOL%'
+          AND date(timestamp) >= date('now', '-6 days')
+        GROUP BY day, activity
+        ORDER BY day ASC
+        """
+    )
+    daily_rows = cur.fetchall()
+
+    days = []
+    d = date.today()
+    for i in range(6, -1, -1):
+        days.append((d - timedelta(days=i)).isoformat())
+
+    activities = ["กินข้าว", "ปวดหนัก", "ปวดน้อย"]
+    daily_data = {act: {day: 0 for day in days} for act in activities}
+    for row in daily_rows:
+        if row["activity"] in daily_data and row["day"] in daily_data[row["activity"]]:
+            daily_data[row["activity"]][row["day"]] = row["count"]
+
+    # คนที่ทำกิจกรรมรวมมากสุด 7 วันล่าสุด (เรียงมากไปน้อย)
+    cur.execute(
+        """
+        SELECT username, COUNT(*) as count
+        FROM status_log
+        WHERE activity != 'กลับที่นั่ง' AND username LIKE '%ODOL%'
+          AND date(timestamp) >= date('now', '-6 days')
+        GROUP BY username
+        ORDER BY count DESC
+        LIMIT 10
+        """
+    )
+    leaderboard = [{"username": r["username"], "count": r["count"]} for r in cur.fetchall()]
+
+    conn.close()
+    return jsonify({
+        "days": days,
+        "daily_data": daily_data,
+        "leaderboard": leaderboard,
+    })
+
+
 def run_flask():
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
