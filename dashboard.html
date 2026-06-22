@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>สถานะพนักงาน</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -143,42 +142,6 @@
     font-size: 12px;
     color: #6f6f7d;
   }
-  .stats-section {
-    margin-top: 36px;
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 16px;
-  }
-  .stats-card {
-    background: #15151a;
-    border: 1px solid #2a2a35;
-    border-radius: 14px;
-    padding: 18px 20px;
-  }
-  .stats-card h3 {
-    font-size: 15px;
-    color: #c5c5d0;
-    margin: 0 0 14px;
-    font-weight: 500;
-  }
-  .leaderboard-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px solid #21212a;
-    font-size: 13px;
-  }
-  .leaderboard-row:last-child { border-bottom: none; }
-  .leaderboard-rank {
-    color: #6f6f7d;
-    width: 20px;
-    flex-shrink: 0;
-  }
-  .leaderboard-count {
-    color: #e0a83a;
-    font-weight: 600;
-  }
 </style>
 </head>
 <body>
@@ -203,17 +166,6 @@
 </div>
 
 <div class="updated" id="updated"></div>
-
-<div class="stats-section">
-  <div class="stats-card">
-    <h3>📊 สถิติ 7 วันล่าสุด</h3>
-    <canvas id="statsChart" height="180"></canvas>
-  </div>
-  <div class="stats-card">
-    <h3>🏆 ใช้กิจกรรมบ่อยสุด (7 วัน)</h3>
-    <div id="leaderboard"></div>
-  </div>
-</div>
 
 </div>
 
@@ -326,68 +278,6 @@ async function loadData() {
 
 loadData();
 setInterval(loadData, 5000);
-
-// ===== กราฟสถิติ =====
-let statsChartInstance = null;
-
-async function loadStats() {
-  try {
-    const res = await fetch("/api/stats");
-    const data = await res.json();
-
-    const labels = data.days.map(d => {
-      const dt = new Date(d);
-      return dt.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
-    });
-
-    const colors = {
-      "กินข้าว": "#e0a83a",
-      "ปวดหนัก": "#e57373",
-      "ปวดน้อย": "#e0c050",
-    };
-
-    const datasets = Object.entries(data.daily_data).map(([activity, byDay]) => ({
-      label: activity,
-      data: data.days.map(d => byDay[d] || 0),
-      backgroundColor: colors[activity] || "#888",
-      borderRadius: 4,
-    }));
-
-    const ctx = document.getElementById("statsChart");
-    if (statsChartInstance) statsChartInstance.destroy();
-    statsChartInstance = new Chart(ctx, {
-      type: "bar",
-      data: { labels, datasets },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: { labels: { color: "#c5c5d0" } },
-        },
-        scales: {
-          x: { ticks: { color: "#9a9aa8" }, grid: { color: "#21212a" } },
-          y: { ticks: { color: "#9a9aa8", precision: 0 }, grid: { color: "#21212a" }, beginAtZero: true },
-        },
-      },
-    });
-
-    const lb = document.getElementById("leaderboard");
-    if (data.leaderboard.length === 0) {
-      lb.innerHTML = `<p style="color:#6f6f7d; font-size:13px;">ยังไม่มีข้อมูล</p>`;
-    } else {
-      lb.innerHTML = data.leaderboard.map((p, i) => `
-        <div class="leaderboard-row">
-          <span><span class="leaderboard-rank">#${i + 1}</span>${p.username}</span>
-          <span class="leaderboard-count">${p.count} ครั้ง</span>
-        </div>
-      `).join("");
-    }
-  } catch (err) {
-    console.error("โหลดสถิติไม่สำเร็จ", err);
-  }
-}
-
-loadStats();
-setInterval(loadStats, 60000); // กราฟอัปเดตทุก 1 นาทีพอ ไม่ต้องถี่
 </script>
 
 </body>
