@@ -2,6 +2,7 @@ import os
 import re
 import sqlite3
 import threading
+from collections import defaultdict
 from datetime import datetime, date, timedelta
 
 from dotenv import load_dotenv
@@ -144,6 +145,19 @@ def serve_dashboard():
     return send_from_directory(".", "dashboard.html")
 
 
+def get_period_start(now):
+    """หาจุดเริ่มรอบกะปัจจุบัน (รีเซตทุก 08:05 และ 20:05)"""
+    today_0805 = now.replace(hour=8, minute=5, second=0, microsecond=0)
+    today_2005 = now.replace(hour=20, minute=5, second=0, microsecond=0)
+
+    if now >= today_2005:
+        return today_2005
+    elif now >= today_0805:
+        return today_0805
+    else:
+        return today_2005 - timedelta(days=1)
+
+
 @app.route("/api/status")
 def api_status():
     conn = get_conn()
@@ -153,6 +167,34 @@ def api_status():
     rows = cur.fetchall()
 
     now = datetime.now()
+    # หาจุดเริ่มรอบกะปัจจุบัน (รีเซตทุก 08:05 และ 20:05) - ใช้คำนวณเวลารวมทั้งวันด้วย
+    period_start_for_total = get_period_start(now)
+
+    cur.execute(
+        """
+        SELECT user_id, activity, timestamp FROM status_log
+        WHERE timestamp >= ? AND username LIKE '%ODOL%'
+        ORDER BY user_id, timestamp ASC
+        """,
+        (period_start_for_total.isoformat(),),
+    )
+    log_rows = cur.fetchall()
+
+    user_logs = defaultdict(list)
+    for r in log_rows:
+        user_logs[r["user_id"]].append(r)
+
+    total_today_map = {}
+    for uid, log_list in user_logs.items():
+        total = 0.0
+        for i, row in enumerate(log_list):
+            if row["activity"] == "กลับที่นั่ง":
+                continue
+            start_t = datetime.fromisoformat(row["timestamp"])
+            end_t = datetime.fromisoformat(log_list[i + 1]["timestamp"]) if i + 1 < len(log_list) else now
+            total += (end_t - start_t).total_seconds()
+        total_today_map[uid] = int(total)
+
     people = []
     for row in rows:
         since = datetime.fromisoformat(row["since"])
@@ -163,19 +205,11 @@ def api_status():
             "status": row["status"],
             "since": row["since"],
             "duration_seconds": duration_seconds,
+            "total_today_seconds": total_today_map.get(row["user_id"], 0),
         })
 
     # หาจุดเริ่มรอบกะปัจจุบัน (รีเซตทุก 08:05 และ 20:05)
-    today_0805 = now.replace(hour=8, minute=5, second=0, microsecond=0)
-    today_2005 = now.replace(hour=20, minute=5, second=0, microsecond=0)
-
-    if now >= today_2005:
-        period_start = today_2005
-    elif now >= today_0805:
-        period_start = today_0805
-    else:
-        period_start = today_2005 - timedelta(days=1)
-
+    period_start = get_period_start(now)
     period_start_str = period_start.isoformat()
 
     cur.execute(
@@ -193,6 +227,57 @@ def api_status():
     return jsonify({
         "people": people,
         "summary": {"out_now": out_count, "activity_counts_today": activity_counts},
+    })
+
+
+@app.route("/api/stats")
+def api_stats():
+    conn = get_conn()
+    cur = conn.cursor()
+
+    # สถิติ 7 วันล่าสุด แยกตามกิจกรรม
+    cur.execute(
+        """
+        SELECT date(timestamp) as day, activity, COUNT(*) as count
+        FROM status_log
+        WHERE activity != 'กลับที่นั่ง' AND username LIKE '%ODOL%'
+          AND date(timestamp) >= date('now', '-6 days')
+        GROUP BY day, activity
+        ORDER BY day ASC
+        """
+    )
+    daily_rows = cur.fetchall()
+
+    days = []
+    d = date.today()
+    for i in range(6, -1, -1):
+        days.append((d - timedelta(days=i)).isoformat())
+
+    activities = ["กินข้าว", "ปวดหนัก", "ปวดน้อย"]
+    daily_data = {act: {day: 0 for day in days} for act in activities}
+    for row in daily_rows:
+        if row["activity"] in daily_data and row["day"] in daily_data[row["activity"]]:
+            daily_data[row["activity"]][row["day"]] = row["count"]
+
+    # คนที่ทำกิจกรรมรวมมากสุด 7 วันล่าสุด (เรียงมากไปน้อย)
+    cur.execute(
+        """
+        SELECT username, COUNT(*) as count
+        FROM status_log
+        WHERE activity != 'กลับที่นั่ง' AND username LIKE '%ODOL%'
+          AND date(timestamp) >= date('now', '-6 days')
+        GROUP BY username
+        ORDER BY count DESC
+        LIMIT 10
+        """
+    )
+    leaderboard = [{"username": r["username"], "count": r["count"]} for r in cur.fetchall()]
+
+    conn.close()
+    return jsonify({
+        "days": days,
+        "daily_data": daily_data,
+        "leaderboard": leaderboard,
     })
 
 
