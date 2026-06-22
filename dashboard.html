@@ -4,67 +4,103 @@
 <meta charset="UTF-8">
 <title>สถานะพนักงาน</title>
 <style>
+  * { box-sizing: border-box; }
   body {
     font-family: "Tahoma", "Segoe UI", sans-serif;
-    background: #121212;
+    background: #0f0f14;
     margin: 0;
-    padding: 24px;
+    padding: 32px;
     color: #e6e6e6;
+    position: relative;
+    overflow-x: hidden;
+    min-height: 100vh;
   }
+  .bg-emoji {
+    position: fixed;
+    top: -40px;
+    font-size: 22px;
+    opacity: 0.5;
+    pointer-events: none;
+    animation: fall linear infinite;
+    z-index: 0;
+  }
+  @keyframes fall {
+    from { transform: translateY(0) rotate(0deg); }
+    to { transform: translateY(110vh) rotate(360deg); }
+  }
+  .content { position: relative; z-index: 1; }
   h1 {
-    font-size: 20px;
-    margin-bottom: 16px;
+    font-size: 22px;
+    margin-bottom: 20px;
     color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
   .summary {
     display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
+    gap: 14px;
+    margin-bottom: 28px;
     flex-wrap: wrap;
   }
   .summary-card {
-    background: #1e1e1e;
-    border: 1px solid #2a2a2a;
-    border-radius: 10px;
-    padding: 16px 20px;
-    min-width: 140px;
+    background: linear-gradient(145deg, #1c1c24, #15151a);
+    border: 1px solid #2a2a35;
+    border-radius: 14px;
+    padding: 18px 22px;
+    min-width: 150px;
   }
   .summary-card .label {
     font-size: 13px;
-    color: #999;
-    margin-bottom: 4px;
+    color: #9a9aa8;
+    margin-bottom: 6px;
   }
   .summary-card .value {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: bold;
     color: #fff;
+  }
+  .table-wrap {
+    background: #15151a;
+    border: 1px solid #2a2a35;
+    border-radius: 14px;
+    overflow: hidden;
   }
   table {
     width: 100%;
     border-collapse: collapse;
-    background: #1e1e1e;
-    border: 1px solid #2a2a2a;
-    border-radius: 10px;
-    overflow: hidden;
   }
   th, td {
     text-align: left;
-    padding: 12px 16px;
-    border-bottom: 1px solid #2a2a2a;
+    padding: 14px 18px;
     font-size: 14px;
   }
   th {
-    background: #181818;
-    color: #aaa;
+    background: #1a1a22;
+    color: #9a9aa8;
     font-weight: 600;
+    border-bottom: 1px solid #2a2a35;
   }
-  tr:last-child td {
+  tbody tr {
+    border-bottom: 1px solid #21212a;
+    transition: background 0.15s;
+  }
+  tbody tr:hover {
+    background: #1a1a22;
+  }
+  tbody tr:last-child {
     border-bottom: none;
+  }
+  .user-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
   }
   .badge {
     display: inline-block;
-    padding: 4px 10px;
-    border-radius: 6px;
+    padding: 4px 11px;
+    border-radius: 999px;
     font-size: 12px;
     font-weight: 600;
   }
@@ -72,35 +108,62 @@
   .badge-heavy { background: #3a1717; color: #e57373; }
   .badge-light { background: #3a2e10; color: #e0a83a; }
   .badge-food { background: #3a2e10; color: #e0a83a; }
+  .time-cell {
+    color: #c5c5d0;
+    font-family: "Consolas", monospace;
+  }
+  .time-cell.idle {
+    color: #6f6f7d;
+    font-family: inherit;
+  }
   .updated {
-    margin-top: 12px;
+    margin-top: 16px;
     font-size: 12px;
-    color: #777;
+    color: #6f6f7d;
   }
 </style>
 </head>
 <body>
 
-<h1>สถานะพนักงานวันนี้</h1>
+<div class="content">
+
+<h1>📋 สถานะพนักงานวันนี้</h1>
 
 <div class="summary" id="summary"></div>
 
+<div class="table-wrap">
 <table>
   <thead>
     <tr>
-      <th>ชื่อผู้ใช้</th>
-      <th>รหัสผู้ใช้</th>
-      <th>สถานะ</th>
+      <th>ผู้ใช้</th>
       <th>เวลา</th>
     </tr>
   </thead>
   <tbody id="table-body"></tbody>
 </table>
+</div>
 
 <div class="updated" id="updated"></div>
 
+</div>
+
 <script>
 const API_URL = "/api/status";
+const FLOAT_EMOJIS = ["🎉", "✨", "🌴", "💧", "🟦", "🟡", "🌟", "🍃"];
+
+function spawnEmoji() {
+  const el = document.createElement("div");
+  el.className = "bg-emoji";
+  el.textContent = FLOAT_EMOJIS[Math.floor(Math.random() * FLOAT_EMOJIS.length)];
+  el.style.left = Math.random() * 100 + "vw";
+  const duration = 10 + Math.random() * 12;
+  el.style.animationDuration = duration + "s";
+  el.style.fontSize = (16 + Math.random() * 14) + "px";
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), duration * 1000);
+}
+setInterval(spawnEmoji, 1200);
+for (let i = 0; i < 6; i++) setTimeout(spawnEmoji, i * 400);
 
 function badgeClass(status) {
   if (status === "กลับที่นั่ง") return "badge-back";
@@ -115,6 +178,12 @@ function formatDuration(seconds) {
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
   return [h, m, s].map(v => String(v).padStart(2, "0")).join(":");
+}
+
+function formatAgo(seconds) {
+  const m = Math.floor(seconds / 60);
+  if (m < 1) return "กลับมาเมื่อสักครู่";
+  return `กลับมา ${m} นาทีที่แล้ว`;
 }
 
 async function loadData() {
@@ -137,14 +206,23 @@ async function loadData() {
     `;
 
     const tbody = document.getElementById("table-body");
-    tbody.innerHTML = data.people.map(p => `
-      <tr>
-        <td>${p.username}</td>
-        <td>${p.user_id}</td>
-        <td><span class="badge ${badgeClass(p.status)}">${p.status}</span></td>
-        <td>${p.status === "กลับที่นั่ง" ? "-" : formatDuration(p.duration_seconds)}</td>
-      </tr>
-    `).join("");
+    tbody.innerHTML = data.people.map(p => {
+      const isBack = p.status === "กลับที่นั่ง";
+      const timeHtml = isBack
+        ? `<span class="time-cell idle">${formatAgo(p.duration_seconds)}</span>`
+        : `<span class="time-cell">${formatDuration(p.duration_seconds)}</span>`;
+      return `
+        <tr>
+          <td>
+            <div class="user-cell">
+              ${p.username}
+              <span class="badge ${badgeClass(p.status)}">${p.status}</span>
+            </div>
+          </td>
+          <td>${timeHtml}</td>
+        </tr>
+      `;
+    }).join("");
 
     document.getElementById("updated").textContent =
       "อัปเดตล่าสุด: " + new Date().toLocaleTimeString("th-TH");
