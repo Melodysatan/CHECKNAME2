@@ -94,6 +94,9 @@ def parse_message(text):
     username = user_match.group(1).strip()
     user_id = userid_match.group(1).strip()
 
+    if "ODOL" not in username:
+        return None  # ไม่ใช่ ODOL ข้ามไปเลย
+
     if "กลับที่นั่ง" in cleaned and "ลงทะเบียนสำเร็จ" not in cleaned:
         return {"user_id": user_id, "username": username, "activity": "กลับที่นั่ง", "raw": cleaned}
 
