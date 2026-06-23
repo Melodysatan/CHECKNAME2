@@ -353,17 +353,20 @@ def api_status():
 
     def round_status_for(user_id, round_label):
         announced_at = announced_map.get(round_label)
-        if not announced_at:
-            return "gray"
         checked_at = checkin_map.get((user_id, round_label))
+
+        if not announced_at:
+            return "gray", None
         if checked_at and checked_at >= announced_at:
-            return "green"
-        return "red"
+            return "green", checked_at.astimezone(BANGKOK_TZ).strftime("%H:%M")
+        return "red", None
 
     for p in people:
+        r1_status, r1_time = round_status_for(p["user_id"], round1_label)
+        r2_status, r2_time = round_status_for(p["user_id"], round2_label)
         p["checkin"] = {
-            "round1": {"label": "เช็คชื่อรอบที่ 1", "status": round_status_for(p["user_id"], round1_label)},
-            "round2": {"label": "เช็คชื่อรอบที่ 2", "status": round_status_for(p["user_id"], round2_label)},
+            "round1": {"label": "เช็คชื่อรอบที่ 1", "status": r1_status, "time": r1_time},
+            "round2": {"label": "เช็คชื่อรอบที่ 2", "status": r2_status, "time": r2_time},
         }
 
     cur.close()
