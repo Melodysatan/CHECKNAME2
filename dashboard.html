@@ -118,6 +118,19 @@
   }
   .badge-back { background: #16331f; color: #4caf6e; }
   .badge-heavy { background: #3a1717; color: #e57373; }
+  .checkin-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .checkin-gray { background: #24242c; color: #6f6f7d; }
+  .checkin-red { background: #3a1717; color: #e57373; }
+  .checkin-green { background: #16331f; color: #4caf6e; }
   .badge-light { background: #3a2e10; color: #e0a83a; }
   .badge-food { background: #3a2e10; color: #e0a83a; }
   .badge-overtime {
@@ -327,11 +340,21 @@ async function loadData() {
         ? `<span class="time-cell idle">${formatAgo(p.duration_seconds)}</span>`
         : `<span class="time-cell">${formatDuration(p.duration_seconds)}</span>`;
 
+      const checkinHtml = p.checkin ? `
+        <span class="checkin-badge checkin-${p.checkin.round1.status}">
+          ${p.checkin.round1.status === "green" ? "✓ " : ""}${p.checkin.round1.label}
+        </span>
+        <span class="checkin-badge checkin-${p.checkin.round2.status}">
+          ${p.checkin.round2.status === "green" ? "✓ " : ""}${p.checkin.round2.label}
+        </span>
+      ` : "";
+
       return `
         <tr class="${rowCls}">
           <td>
             <div class="user-cell">
               ${p.username}
+              ${checkinHtml}
               <span style="color:#6f6f7d; font-size:12px; font-family:Consolas,monospace; margin-left:8px;">
                 (${formatDuration(p.total_today_seconds || 0)})
               </span>
