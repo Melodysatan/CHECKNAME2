@@ -22,8 +22,16 @@ api_id = int(os.environ.get("TG_API_ID", "0"))
 api_hash = os.environ.get("TG_API_HASH", "")
 session_string = os.environ.get("TG_SESSION", "")
 group_id = int(os.environ.get("TG_GROUP_ID", "0"))
+checkin_group_id = int(os.environ.get("TG_GROUP_ID_CHECKIN", "0"))
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 ACTIVITIES = ["กินข้าว", "ปวดหนัก", "ปวดน้อย"]
+
+ROUND_LABELS = [
+    "กะเช้า(08.00-20.00 น.) รอบที่ 1",
+    "กะเช้า(08.00-20.00 น.) รอบที่ 2",
+    "กะดึก(20.00-08.00 น.) รอบที่ 1",
+    "กะดึก(20.00-08.00 น.) รอบที่ 2",
+]
 # -------------------
 
 if not api_id or not api_hash or not group_id:
@@ -76,6 +84,20 @@ def init_db():
             raw_text TEXT
         )
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS round_status (
+            round_label TEXT PRIMARY KEY,
+            announced_at TIMESTAMPTZ
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS checkin_log (
+            user_id TEXT,
+            round_label TEXT,
+            checked_at TIMESTAMPTZ,
+            PRIMARY KEY (user_id, round_label)
+        )
+    """)
     conn.commit()
     cur.close()
     conn.close()
@@ -97,6 +119,57 @@ def get_period_start(now):
         period_start_bkk = bkk_2005 - timedelta(days=1)
 
     return period_start_bkk.astimezone(timezone.utc)
+
+
+def get_current_shift_rounds(now):
+    """คืนชื่อ 2 รอบของกะปัจจุบัน (เช้า หรือ ดึก) ตามเวลาไทย"""
+    now_bkk = now.astimezone(BANGKOK_TZ)
+    is_day_shift = (now_bkk.hour, now_bkk.minute) >= (8, 5) and (now_bkk.hour, now_bkk.minute) < (20, 5)
+    if is_day_shift:
+        return ROUND_LABELS[0], ROUND_LABELS[1]
+    else:
+        return ROUND_LABELS[2], ROUND_LABELS[3]
+
+
+def save_round_announcement(round_label, now):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO round_status (round_label, announced_at)
+        VALUES (%s, %s)
+        ON CONFLICT (round_label) DO UPDATE SET announced_at = EXCLUDED.announced_at
+        """,
+        (round_label, now),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def save_checkin(user_id, now):
+    """บันทึกว่า user_id เช็คชื่อสำหรับ 'รอบล่าสุดที่ถูกประกาศ' (รอบไหนประกาศหลังสุด)"""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT round_label FROM round_status ORDER BY announced_at DESC LIMIT 1")
+    row = cur.fetchone()
+    if not row:
+        cur.close()
+        conn.close()
+        return  # ยังไม่มีรอบไหนถูกประกาศเลย ไม่ต้องบันทึก
+
+    current_round = row["round_label"]
+    cur.execute(
+        """
+        INSERT INTO checkin_log (user_id, round_label, checked_at)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (user_id, round_label) DO UPDATE SET checked_at = EXCLUDED.checked_at
+        """,
+        (user_id, current_round, now),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 # ===== ส่วน parse ข้อความ Telegram =====
@@ -155,15 +228,37 @@ def save_status(data):
     conn.close()
 
 
-@client.on(events.NewMessage(chats=group_id))
+CHAT_IDS = [group_id] + ([checkin_group_id] if checkin_group_id else [])
+
+
+@client.on(events.NewMessage(chats=CHAT_IDS))
 async def handler(event):
     text = event.message.text
     if not text:
         return
-    data = parse_message(text)
-    if data:
-        save_status(data)
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] {data['username']} -> {data['activity']}")
+
+    if event.chat_id == group_id:
+        data = parse_message(text)
+        if data:
+            save_status(data)
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] {data['username']} -> {data['activity']}")
+
+    elif checkin_group_id and event.chat_id == checkin_group_id:
+        now = datetime.now(timezone.utc)
+
+        round_label = None
+        for label in ROUND_LABELS:
+            if label in text:
+                round_label = label
+                break
+
+        if round_label:
+            save_round_announcement(round_label, now)
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] ประกาศรอบใหม่: {round_label}")
+        else:
+            sender_id = str(event.sender_id)
+            save_checkin(sender_id, now)
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] เช็คชื่อจาก user_id {sender_id}")
 
 
 # ===== ส่วน Flask API =====
@@ -233,6 +328,43 @@ def api_status():
     )
     activity_counts = {r["activity"]: r["count"] for r in cur.fetchall()}
     out_count = sum(1 for p in people if p["status"] != "กลับที่นั่ง")
+
+    # ===== ข้อมูลเช็คชื่อ (รอบที่ 1 / รอบที่ 2 ของกะปัจจุบัน) =====
+    round1_label, round2_label = get_current_shift_rounds(now)
+
+    cur.execute(
+        "SELECT round_label, announced_at FROM round_status WHERE round_label IN (%s, %s)",
+        (round1_label, round2_label),
+    )
+    announced_map = {r["round_label"]: r["announced_at"] for r in cur.fetchall()}
+
+    user_ids = [p["user_id"] for p in people]
+    checkin_map = {}
+    if user_ids:
+        cur.execute(
+            """
+            SELECT user_id, round_label, checked_at FROM checkin_log
+            WHERE round_label IN (%s, %s) AND user_id = ANY(%s)
+            """,
+            (round1_label, round2_label, user_ids),
+        )
+        for r in cur.fetchall():
+            checkin_map[(r["user_id"], r["round_label"])] = r["checked_at"]
+
+    def round_status_for(user_id, round_label):
+        announced_at = announced_map.get(round_label)
+        if not announced_at:
+            return "gray"
+        checked_at = checkin_map.get((user_id, round_label))
+        if checked_at and checked_at >= announced_at:
+            return "green"
+        return "red"
+
+    for p in people:
+        p["checkin"] = {
+            "round1": {"label": "เช็คชื่อรอบที่ 1", "status": round_status_for(p["user_id"], round1_label)},
+            "round2": {"label": "เช็คชื่อรอบที่ 2", "status": round_status_for(p["user_id"], round2_label)},
+        }
 
     cur.close()
     conn.close()
