@@ -45,6 +45,7 @@ python main.py
    - `TG_API_ID`
    - `TG_API_HASH`
    - `TG_GROUP_ID`
+   - `TG_GROUP_ID_CHECKIN`
    - `TG_SESSION` (string จากขั้นที่ 1)
    - `DATABASE_URL` (จาก Render Postgres)
 5. Deploy แล้วเข้าผ่าน URL ที่ Render ให้มา
