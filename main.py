@@ -3,7 +3,8 @@ import re
 import sqlite3
 import threading
 from collections import defaultdict
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 load_dotenv()  # โหลดค่าจากไฟล์ .env ถ้ามี (สำหรับรันที่เครื่องตัวเอง)
@@ -106,7 +107,7 @@ def parse_message(text):
 def save_status(data):
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    now = datetime.now().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     cur.execute(
         "INSERT INTO status_log (user_id, username, activity, timestamp, raw_text) VALUES (?, ?, ?, ?, ?)",
@@ -145,17 +146,25 @@ def serve_dashboard():
     return send_from_directory(".", "dashboard.html")
 
 
-def get_period_start(now):
-    """หาจุดเริ่มรอบกะปัจจุบัน (รีเซตทุก 08:05 และ 20:05)"""
-    today_0805 = now.replace(hour=8, minute=5, second=0, microsecond=0)
-    today_2005 = now.replace(hour=20, minute=5, second=0, microsecond=0)
+BANGKOK_TZ = ZoneInfo("Asia/Bangkok")
 
-    if now >= today_2005:
-        return today_2005
-    elif now >= today_0805:
-        return today_0805
+
+def get_period_start(now):
+    """หาจุดเริ่มรอบกะปัจจุบัน (รีเซตทุก 08:05 และ 20:05 'เวลาไทย' เสมอ
+    ไม่ว่า server จะรันอยู่ timezone ไหนก็ตาม) — now ต้องเป็น UTC-aware datetime"""
+    now_bkk = now.astimezone(BANGKOK_TZ)
+
+    bkk_0805 = now_bkk.replace(hour=8, minute=5, second=0, microsecond=0)
+    bkk_2005 = now_bkk.replace(hour=20, minute=5, second=0, microsecond=0)
+
+    if now_bkk >= bkk_2005:
+        period_start_bkk = bkk_2005
+    elif now_bkk >= bkk_0805:
+        period_start_bkk = bkk_0805
     else:
-        return today_2005 - timedelta(days=1)
+        period_start_bkk = bkk_2005 - timedelta(days=1)
+
+    return period_start_bkk.astimezone(timezone.utc)
 
 
 @app.route("/api/status")
@@ -166,7 +175,7 @@ def api_status():
     cur.execute("SELECT user_id, username, status, since FROM current_status WHERE username LIKE '%ODOL%'")
     rows = cur.fetchall()
 
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     # หาจุดเริ่มรอบกะปัจจุบัน (รีเซตทุก 08:05 และ 20:05) - ใช้คำนวณเวลารวมทั้งวันด้วย
     period_start_for_total = get_period_start(now)
 
