@@ -386,7 +386,7 @@ def api_status():
         for r in cur.fetchall():
             checkin_map[(r["user_id"], r["round_label"])] = r["checked_at"]
 
-    def round_status_for(user_id, round_label):
+    def round_status_for(user_id, round_label, is_round1=False):
         announced_at = announced_map.get(round_label)
         checked_at = checkin_map.get((user_id, round_label))
 
@@ -394,6 +394,8 @@ def api_status():
             return "gray", None
         if checked_at and checked_at >= announced_at:
             return "green", checked_at.astimezone(BANGKOK_TZ).strftime("%H:%M")
+        if is_round1 and (now - announced_at) > timedelta(hours=1):
+            return "holiday", None
         return "red", None
 
     now_bkk = now.astimezone(BANGKOK_TZ)
@@ -411,7 +413,7 @@ def api_status():
             }
             continue
 
-        r1_status, r1_time = round_status_for(p["user_id"], round1_label)
+        r1_status, r1_time = round_status_for(p["user_id"], round1_label, is_round1=True)
         r2_status, r2_time = round_status_for(p["user_id"], round2_label)
         p["checkin"] = {
             "round1": {"label": "เช็คชื่อรอบที่ 1", "status": r1_status, "time": r1_time},
