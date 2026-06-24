@@ -284,9 +284,15 @@ async function loadData() {
     const tbody = document.getElementById("table-body");
 
     const sortedPeople = [...data.people].sort((a, b) => {
-      const aOff = a.checkin && (a.checkin.round1.status === "offshift" || a.checkin.round1.status === "holiday");
-      const bOff = b.checkin && (b.checkin.round1.status === "offshift" || b.checkin.round1.status === "holiday");
-      if (aOff !== bOff) return aOff ? 1 : -1;
+      const getPriority = (p) => {
+        if (!p.checkin) return 0;
+        if (p.checkin.round1.status === "offshift") return 2;
+        if (p.checkin.round1.status === "holiday") return 1;
+        return 0;
+      };
+      const aPriority = getPriority(a);
+      const bPriority = getPriority(b);
+      if (aPriority !== bPriority) return aPriority - bPriority;
 
       const aActive = a.status !== "กลับที่นั่ง";
       const bActive = b.status !== "กลับที่นั่ง";
