@@ -346,6 +346,8 @@ async function loadData() {
         ? `<span class="time-cell idle">${formatAgo(p.duration_seconds)}</span>`
         : `<span class="time-cell">${formatDuration(p.duration_seconds)}</span>`;
 
+      const isHoliday = p.checkin && p.checkin.round1.status === "holiday";
+
       const checkinHtml = p.checkin ? `
         <span style="display:inline-flex; flex-direction:column; align-items:center; gap:2px;">
           <span class="checkin-badge checkin-${p.checkin.round1.status}">
@@ -353,12 +355,14 @@ async function loadData() {
           </span>
           ${p.checkin.round1.time ? `<span style="font-size:10px; color:#4caf6e;">${p.checkin.round1.time}</span>` : ""}
         </span>
+        ${isHoliday ? "" : `
         <span style="display:inline-flex; flex-direction:column; align-items:center; gap:2px;">
           <span class="checkin-badge checkin-${p.checkin.round2.status}">
             ${p.checkin.round2.status === "green" ? "✓ " : ""}${p.checkin.round2.label}
           </span>
           ${p.checkin.round2.time ? `<span style="font-size:10px; color:#4caf6e;">${p.checkin.round2.time}</span>` : ""}
         </span>
+        `}
       ` : "";
 
       return `
