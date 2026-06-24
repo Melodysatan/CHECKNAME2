@@ -284,8 +284,8 @@ async function loadData() {
     const tbody = document.getElementById("table-body");
 
     const sortedPeople = [...data.people].sort((a, b) => {
-      const aOff = a.checkin && a.checkin.round1.status === "offshift";
-      const bOff = b.checkin && b.checkin.round1.status === "offshift";
+      const aOff = a.checkin && (a.checkin.round1.status === "offshift" || a.checkin.round1.status === "holiday");
+      const bOff = b.checkin && (b.checkin.round1.status === "offshift" || b.checkin.round1.status === "holiday");
       if (aOff !== bOff) return aOff ? 1 : -1;
 
       const aActive = a.status !== "กลับที่นั่ง";
