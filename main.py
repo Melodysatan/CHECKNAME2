@@ -1,5 +1,6 @@
 import os
 import re
+import json
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -68,6 +69,19 @@ CORS(app)
 # เงื่อนไข SQL กรองชื่อที่ลงท้ายด้วย suffix ที่ไม่ใช่พนักงานของเรา (ใช้ซ้ำหลายจุด)
 EXCLUDE_SQL = " AND " + " AND ".join("username NOT LIKE %s" for _ in EXCLUDED_SUFFIXES)
 EXCLUDE_PARAMS = tuple(f"%{suf}" for suf in EXCLUDED_SUFFIXES)
+
+SHIFT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shift_assignments.json")
+
+
+def load_shift_map():
+    """โหลดไฟล์รายชื่อกะ (username -> 'เช้า'/'ดึก') ใหม่ทุกครั้งที่เรียก
+    เพื่อให้แก้ไฟล์แล้วเห็นผลทันทีโดยไม่ต้อง restart service"""
+    try:
+        with open(SHIFT_FILE, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        return {k: v for k, v in raw.items() if not k.startswith("_")}
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
 
 
 def get_conn():
@@ -382,7 +396,21 @@ def api_status():
             return "green", checked_at.astimezone(BANGKOK_TZ).strftime("%H:%M")
         return "red", None
 
+    now_bkk = now.astimezone(BANGKOK_TZ)
+    current_shift = "เช้า" if (8, 5) <= (now_bkk.hour, now_bkk.minute) < (20, 5) else "ดึก"
+    shift_map = load_shift_map()
+
     for p in people:
+        person_shift = shift_map.get(p["username"])
+
+        if person_shift and person_shift != current_shift:
+            # คนนี้ไม่ได้อยู่กะนี้ ไม่ต้องไปเช็คว่าเช็คชื่อรอบของกะนี้หรือไม่ (ไม่ใช่ภาระของเขา)
+            p["checkin"] = {
+                "round1": {"label": "ไม่ใช่กะนี้", "status": "offshift", "time": None},
+                "round2": {"label": "ไม่ใช่กะนี้", "status": "offshift", "time": None},
+            }
+            continue
+
         r1_status, r1_time = round_status_for(p["user_id"], round1_label)
         r2_status, r2_time = round_status_for(p["user_id"], round2_label)
         p["checkin"] = {
