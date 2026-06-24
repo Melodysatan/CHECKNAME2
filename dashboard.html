@@ -318,8 +318,9 @@ async function loadData() {
 
       const aActive = a.status !== "กลับที่นั่ง";
       const bActive = b.status !== "กลับที่นั่ง";
-      if (aActive === bActive) return 0;
-      return aActive ? -1 : 1;
+      if (aActive !== bActive) return aActive ? -1 : 1;
+      if (!aActive && !bActive) return a.duration_seconds - b.duration_seconds; // กลับล่าสุดอยู่บน
+      return 0;
     });
 
     // เช็คว่ามีใครเพิ่งเกินเวลาใหม่ในรอบนี้ไหม เพื่อพูดเสียงเตือน
@@ -424,7 +425,7 @@ async function loadData() {
 }
 
 loadData();
-setInterval(loadData, 5000);
+setInterval(loadData, 1000);
 </script>
 
 </body>
