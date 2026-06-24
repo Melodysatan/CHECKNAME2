@@ -73,9 +73,10 @@
     border-collapse: collapse;
     table-layout: fixed;
   }
-  th:nth-child(1), td:nth-child(1) { width: 35%; }
-  th:nth-child(2), td:nth-child(2) { width: 35%; text-align: center; }
-  th:nth-child(3), td:nth-child(3) { width: 35%; text-align: right; }
+  th:nth-child(1), td:nth-child(1) { width: 32%; }
+  th:nth-child(2), td:nth-child(2) { width: 18%; text-align: center; }
+  th:nth-child(3), td:nth-child(3) { width: 25%; text-align: center; }
+  th:nth-child(4), td:nth-child(4) { width: 25%; text-align: right; }
   th, td {
     text-align: left;
     padding: 14px 18px;
@@ -93,6 +94,12 @@
   }
   tbody tr.row-active {
     background: #211616;
+  }
+  tbody tr.row-overtime {
+    background: #2e1414;
+  }
+  tbody tr.row-overtime:hover {
+    background: #381818;
   }
   tbody tr.row-active:hover {
     background: #2a1c1c;
@@ -121,17 +128,26 @@
   .checkin-badge {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 2px 8px;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .checkin-wide {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 10px;
     border-radius: 999px;
     font-size: 11px;
     font-weight: 500;
-    white-space: nowrap;
   }
-  .checkin-gray { background: #24242c; color: #6f6f7d; }
+  .checkin-gray { background: #24242c; color: #45454f; }
   .checkin-red { background: #3a1717; color: #e57373; }
   .checkin-green { background: #16331f; color: #4caf6e; }
-  .checkin-offshift { background: #1a1a22; color: #45454f; opacity: 0.5; }
+  .checkin-offshift { background: #1a1a22; color: #45454f; opacity: 0.6; }
   .checkin-holiday { background: #3a2e10; color: #e0c050; }
   .badge-light { background: #3a2e10; color: #e0a83a; }
   .badge-food { background: #3a2e10; color: #e0a83a; }
@@ -172,6 +188,7 @@
   <thead>
     <tr>
       <th>ผู้ใช้</th>
+      <th style="text-align:center;">เช็คชื่อ</th>
       <th style="text-align:center;">สถานะ</th>
       <th>เวลา</th>
     </tr>
@@ -369,7 +386,7 @@ async function loadData() {
       const displayLabel = isOvertime ? `เกินเวลา${p.status}` : p.status;
       const badgeCls = isOvertime ? "badge-overtime" : badgeClass(p.status);
       const warnIcon = isOvertime ? "⚠️ " : "";
-      const rowCls = isBack ? "row-idle" : "row-active";
+      const rowCls = isBack ? "row-idle" : (isOvertime ? "row-overtime" : "row-active");
 
       const timeHtml = isBack
         ? `<span class="time-cell idle">${formatAgo(p.duration_seconds)}</span>`
@@ -380,35 +397,40 @@ async function loadData() {
             : `<span class="time-cell">${formatDuration(p.duration_seconds)}</span>`;
 
       const isHoliday = p.checkin && p.checkin.round1.status === "holiday";
+      const isOffshift = p.checkin && p.checkin.round1.status === "offshift";
 
-      const checkinHtml = p.checkin ? `
-        <span style="display:inline-flex; flex-direction:column; align-items:center; gap:2px;">
-          <span class="checkin-badge checkin-${p.checkin.round1.status}">
-            ${p.checkin.round1.status === "green" ? "✓ " : ""}${p.checkin.round1.status === "holiday" ? "วันหยุด" : p.checkin.round1.label}
-          </span>
-          ${p.checkin.round1.time ? `<span style="font-size:10px; color:#4caf6e;">${p.checkin.round1.time}</span>` : ""}
-        </span>
-        ${isHoliday ? "" : `
-        <span style="display:inline-flex; flex-direction:column; align-items:center; gap:2px;">
-          <span class="checkin-badge checkin-${p.checkin.round2.status}">
-            ${p.checkin.round2.status === "green" ? "✓ " : ""}${p.checkin.round2.label}
-          </span>
-          ${p.checkin.round2.time ? `<span style="font-size:10px; color:#4caf6e;">${p.checkin.round2.time}</span>` : ""}
-        </span>
-        `}
-      ` : "";
+      function roundIconHtml(round, roundNum) {
+        if (round.status === "green") {
+          return `<span class="checkin-badge checkin-green" title="รอบ ${roundNum} · ${round.time || ''}">✓</span>`;
+        }
+        if (round.status === "red") {
+          return `<span class="checkin-badge checkin-red" title="รอบ ${roundNum} · ยังไม่เช็คชื่อ">!</span>`;
+        }
+        return `<span class="checkin-badge checkin-gray" title="รอบ ${roundNum} · ยังไม่ประกาศ">·</span>`;
+      }
+
+      let checkinHtml;
+      if (!p.checkin) {
+        checkinHtml = "";
+      } else if (isHoliday) {
+        checkinHtml = `<span class="checkin-wide checkin-holiday">วันหยุด</span>`;
+      } else if (isOffshift) {
+        checkinHtml = `<span class="checkin-wide checkin-offshift">ไม่ใช่กะนี้</span>`;
+      } else {
+        checkinHtml = `${roundIconHtml(p.checkin.round1, 1)} ${roundIconHtml(p.checkin.round2, 2)}`;
+      }
 
       return `
         <tr class="${rowCls}">
           <td>
             <div class="user-cell">
               ${p.username}
-              ${checkinHtml}
               <span style="color:#6f6f7d; font-size:12px; font-family:Consolas,monospace; margin-left:8px;">
                 (${formatDuration(p.total_today_seconds || 0)})
               </span>
             </div>
           </td>
+          <td style="text-align:center;">${checkinHtml}</td>
           <td style="text-align:center;">
             <span class="badge ${badgeCls}">${warnIcon}${displayLabel}</span>
           </td>
