@@ -26,6 +26,12 @@ checkin_group_id = int(os.environ.get("TG_GROUP_ID_CHECKIN", "0"))
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 ACTIVITIES = ["กินข้าว", "ปวดหนัก", "ปวดน้อย"]
 
+# ชื่อที่ลงท้ายด้วยคำพวกนี้ ไม่ใช่พนักงานของเรา ให้กรองออก
+EXCLUDED_SUFFIXES = [
+    "Vv72", "PG688", "Jun88", "MK8", "JL69",
+    "F168", "K188", "NM9", "BT678", "TH26",
+]
+
 ROUND_LABELS = [
     "กะเช้า(08.00-20.00 น.) รอบที่ 1",
     "กะเช้า(08.00-20.00 น.) รอบที่ 2",
@@ -58,6 +64,11 @@ CORS(app)
 
 
 # ===== ส่วนฐานข้อมูล (PostgreSQL) =====
+
+# เงื่อนไข SQL กรองชื่อที่ลงท้ายด้วย suffix ที่ไม่ใช่พนักงานของเรา (ใช้ซ้ำหลายจุด)
+EXCLUDE_SQL = " AND " + " AND ".join("username NOT LIKE %s" for _ in EXCLUDED_SUFFIXES)
+EXCLUDE_PARAMS = tuple(f"%{suf}" for suf in EXCLUDED_SUFFIXES)
+
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
@@ -193,6 +204,9 @@ def parse_message(text):
     if "ODOL" not in username:
         return None  # ไม่ใช่ ODOL ข้ามไปเลย
 
+    if any(username.endswith(suf) for suf in EXCLUDED_SUFFIXES):
+        return None  # ลงท้ายด้วย suffix ที่ไม่ใช่พนักงานของเรา ข้ามไปเลย
+
     if "กลับที่นั่ง" in cleaned and "ลงทะเบียนสำเร็จ" not in cleaned:
         return {"user_id": user_id, "username": username, "activity": "กลับที่นั่ง", "raw": cleaned}
 
@@ -233,11 +247,11 @@ CHAT_IDS = [group_id] + ([checkin_group_id] if checkin_group_id else [])
 
 @client.on(events.NewMessage(chats=CHAT_IDS))
 async def handler(event):
-    text = event.message.text
-    if not text:
-        return
+    text = event.message.text or ""
 
     if event.chat_id == group_id:
+        if not text:
+            return
         data = parse_message(text)
         if data:
             save_status(data)
@@ -256,6 +270,8 @@ async def handler(event):
             save_round_announcement(round_label, now)
             print(f"[{datetime.now().strftime('%H:%M:%S')}] ประกาศรอบใหม่: {round_label}")
         else:
+            # ไม่ใช่ข้อความประกาศ -> นับเป็นเช็คชื่อ ไม่ว่าจะมีข้อความ/แคปชั่นหรือไม่ก็ตาม
+            # (ส่งแค่รูปอย่างเดียวไม่มีแคปชั่นก็ต้องนับด้วย)
             sender_id = str(event.sender_id)
             save_checkin(sender_id, now)
             print(f"[{datetime.now().strftime('%H:%M:%S')}] เช็คชื่อจาก user_id {sender_id}")
@@ -273,7 +289,10 @@ def api_status():
     conn = get_conn()
     cur = conn.cursor()
 
-    cur.execute("SELECT user_id, username, status, since FROM current_status WHERE username LIKE %s", ("%ODOL%",))
+    cur.execute(
+        "SELECT user_id, username, status, since FROM current_status WHERE username LIKE %s" + EXCLUDE_SQL,
+        ("%ODOL%",) + EXCLUDE_PARAMS,
+    )
     rows = cur.fetchall()
 
     now = datetime.now(timezone.utc)
@@ -284,9 +303,10 @@ def api_status():
         """
         SELECT user_id, activity, timestamp FROM status_log
         WHERE timestamp >= %s AND username LIKE %s
+        """ + EXCLUDE_SQL + """
         ORDER BY user_id, timestamp ASC
         """,
-        (period_start, "%ODOL%"),
+        (period_start, "%ODOL%") + EXCLUDE_PARAMS,
     )
     log_rows = cur.fetchall()
 
@@ -322,9 +342,10 @@ def api_status():
         """
         SELECT activity, COUNT(*) as count FROM status_log
         WHERE timestamp >= %s AND activity != 'กลับที่นั่ง' AND username LIKE %s
+        """ + EXCLUDE_SQL + """
         GROUP BY activity
         """,
-        (period_start, "%ODOL%"),
+        (period_start, "%ODOL%") + EXCLUDE_PARAMS,
     )
     activity_counts = {r["activity"]: r["count"] for r in cur.fetchall()}
     out_count = sum(1 for p in people if p["status"] != "กลับที่นั่ง")
