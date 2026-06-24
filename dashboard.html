@@ -213,32 +213,54 @@ const overtimeAlerted = new Set();
 // เก็บรายชื่อคนที่เตือนล่วงหน้าไปแล้ว (กันเตือนซ้ำ)
 const warningAlerted = new Set();
 
-function speakAlert(username, activity) {
+// ===== เลือกเสียงพูดภาษาไทยที่ดีที่สุดที่เบราว์เซอร์มีให้ (เป็นธรรมชาติกว่าเสียง default) =====
+let cachedThaiVoice = null;
+function pickThaiVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || voices.length === 0) return null;
+
+  const thaiVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith("th"));
+  if (thaiVoices.length === 0) return null;
+
+  // ให้ความสำคัญกับเสียงจาก Google ก่อน (มักจะเป็นธรรมชาติกว่าเสียงระบบของ Windows/macOS)
+  const googleVoice = thaiVoices.find(v => v.name.toLowerCase().includes("google"));
+  return googleVoice || thaiVoices[0];
+}
+
+// โหลดรายชื่อเสียงทันทีที่พร้อม (บางเบราว์เซอร์โหลดแบบ async)
+if (window.speechSynthesis) {
+  cachedThaiVoice = pickThaiVoice();
+  window.speechSynthesis.onvoiceschanged = () => {
+    cachedThaiVoice = pickThaiVoice();
+  };
+}
+
+function speakText(text) {
   try {
-    const shortName = username.split("-").slice(0, 2).join(" ");
-    const text = `${shortName} เกินเวลา${activity}แล้ว รีบกลับที่นั่งให้ไว`;
+    // ยกเลิกคิวเสียงเก่าก่อนพูดใหม่ทุกครั้ง กันปัญหาเสียงพูดขาด/ค้างจาก browser bug
+    window.speechSynthesis.cancel();
+
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = "th-TH";
-    utter.rate = 1;
+    if (cachedThaiVoice) utter.voice = cachedThaiVoice;
+    utter.rate = 0.95;
     utter.pitch = 1;
-    window.speechSynthesis.speak(utter);
+
+    // หน่วงเล็กน้อยก่อนพูด กัน bug ของ Chrome ที่บางทีพูดขาดถ้า speak() ติดกับ cancel() เกินไป
+    setTimeout(() => window.speechSynthesis.speak(utter), 80);
   } catch (err) {
     console.warn("พูดเสียงเตือนไม่ได้", err);
   }
 }
 
+function speakAlert(username, activity) {
+  const shortName = username.split("-").slice(0, 2).join(" ");
+  speakText(`${shortName} เกินเวลา${activity}แล้ว รีบกลับที่นั่งให้ไว`);
+}
+
 function speakWarning(username, activity) {
-  try {
-    const shortName = username.split("-").slice(0, 2).join(" ");
-    const text = `${shortName} จะเกินเวลา${activity}แล้ว ให้รีบกดกลับครับ`;
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "th-TH";
-    utter.rate = 1;
-    utter.pitch = 1;
-    window.speechSynthesis.speak(utter);
-  } catch (err) {
-    console.warn("พูดเสียงเตือนไม่ได้", err);
-  }
+  const shortName = username.split("-").slice(0, 2).join(" ");
+  speakText(`${shortName} จะเกินเวลา${activity}แล้ว ให้รีบกดกลับครับ`);
 }
 
 function badgeClass(status) {
@@ -350,7 +372,11 @@ async function loadData() {
 
       const timeHtml = isBack
         ? `<span class="time-cell idle">${formatAgo(p.duration_seconds)}</span>`
-        : `<span class="time-cell">${formatDuration(p.duration_seconds)}</span>`;
+        : isOvertime
+          ? `<span class="time-cell">+${formatDuration(p.duration_seconds - limit)}</span>`
+          : limit
+            ? `<span class="time-cell">${formatDuration(limit - p.duration_seconds)}</span>`
+            : `<span class="time-cell">${formatDuration(p.duration_seconds)}</span>`;
 
       const isHoliday = p.checkin && p.checkin.round1.status === "holiday";
 
