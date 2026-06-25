@@ -28,44 +28,58 @@
     from { transform: translateY(0) rotate(0deg); }
     to { transform: translateY(110vh) rotate(360deg); }
   }
-  .content { position: relative; z-index: 1; }
+  .content { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; }
+
+  .header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
   h1 {
-    font-size: 22px;
-    margin-bottom: 20px;
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
     color: #fff;
     display: flex;
     align-items: center;
     gap: 8px;
   }
+  .updated {
+    font-size: 12px;
+    color: #6f6f7d;
+  }
+
   .summary {
-    display: flex;
-    gap: 14px;
-    margin-bottom: 28px;
-    flex-wrap: wrap;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
   }
   .summary-card {
     background: linear-gradient(145deg, #1c1c24, #15151a);
     border: 1px solid #2a2a35;
     border-radius: 14px;
-    padding: 18px 22px;
-    min-width: 150px;
+    padding: 16px 18px;
     text-align: center;
   }
   .summary-card .label {
-    font-size: 13px;
+    font-size: 12px;
     color: #9a9aa8;
     margin-bottom: 6px;
   }
   .summary-card .value {
-    font-size: 26px;
-    font-weight: bold;
+    font-size: 24px;
+    font-weight: 600;
     color: #fff;
   }
+
   .table-wrap {
     background: #15151a;
     border: 1px solid #2a2a35;
-    border-radius: 14px;
+    border-radius: 16px;
     overflow: hidden;
   }
   table {
@@ -73,51 +87,42 @@
     border-collapse: collapse;
     table-layout: fixed;
   }
-  th:nth-child(1), td:nth-child(1) { width: 32%; }
-  th:nth-child(2), td:nth-child(2) { width: 18%; text-align: center; }
-  th:nth-child(3), td:nth-child(3) { width: 25%; text-align: center; }
-  th:nth-child(4), td:nth-child(4) { width: 25%; text-align: right; }
   th, td {
-    text-align: left;
-    padding: 14px 18px;
-    font-size: 14px;
+    padding: 13px 16px;
+    font-size: 13px;
   }
   th {
     background: #1a1a22;
     color: #9a9aa8;
-    font-weight: 600;
+    font-weight: 500;
     border-bottom: 1px solid #2a2a35;
+    text-align: left;
   }
+  th:nth-child(1), td:nth-child(1) { width: 26%; text-align: left; }
+  th:nth-child(2), td:nth-child(2) { width: 18%; text-align: center; }
+  th:nth-child(3), td:nth-child(3) { width: 18%; text-align: right; }
+  th:nth-child(4), td:nth-child(4) { width: 20%; text-align: center; }
+  th:nth-child(5), td:nth-child(5) { width: 18%; text-align: right; }
+
   tbody tr {
     border-bottom: 1px solid #21212a;
     transition: background 0.15s;
   }
-  tbody tr.row-active {
-    background: #211616;
-  }
-  tbody tr.row-overtime {
-    background: #2e1414;
-  }
-  tbody tr.row-overtime:hover {
-    background: #381818;
-  }
-  tbody tr.row-active:hover {
-    background: #2a1c1c;
-  }
-  tbody tr.row-idle:hover {
-    background: #1a1a22;
-  }
-  tbody tr:last-child {
-    border-bottom: none;
-  }
-  .user-cell {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  tbody tr.row-active { background: #211616; }
+  tbody tr.row-overtime { background: #2e1414; }
+  tbody tr.row-overtime:hover { background: #381818; }
+  tbody tr.row-active:hover { background: #2a1c1c; }
+  tbody tr.row-idle:hover { background: #1a1a22; }
+  tbody tr:last-child { border-bottom: none; }
+
+  .username {
     font-weight: 500;
+    color: #fff;
   }
+
   .badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     padding: 4px 11px;
     border-radius: 999px;
     font-size: 12px;
@@ -125,30 +130,6 @@
   }
   .badge-back { background: #16331f; color: #4caf6e; }
   .badge-heavy { background: #3a1717; color: #e57373; }
-  .checkin-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    font-size: 13px;
-    font-weight: 600;
-  }
-  .checkin-wide {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 500;
-  }
-  .checkin-gray { background: #24242c; color: #45454f; }
-  .checkin-red { background: #3a1717; color: #e57373; }
-  .checkin-green { background: #16331f; color: #4caf6e; }
-  .checkin-offshift { background: #1a1a22; color: #45454f; opacity: 0.6; }
-  .checkin-holiday { background: #3a2e10; color: #e0c050; }
   .badge-light { background: #3a2e10; color: #e0a83a; }
   .badge-food { background: #3a2e10; color: #e0a83a; }
   .badge-overtime {
@@ -160,44 +141,70 @@
     0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,107,0.5); }
     50% { box-shadow: 0 0 0 5px rgba(255,107,107,0.15); }
   }
-  .time-cell {
-    color: #c5c5d0;
-    font-family: "Consolas", monospace;
+
+  .checkin-icons { display: inline-flex; gap: 8px; }
+  .checkin-col { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; }
+  .checkin-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 600;
   }
-  .time-cell.idle {
-    color: #6f6f7d;
-    font-family: inherit;
+  .checkin-time {
+    font-size: 10px;
+    color: #4caf6e;
+    font-family: Consolas, monospace;
   }
-  .updated {
-    margin-top: 16px;
-    font-size: 12px;
-    color: #6f6f7d;
+  .checkin-wide {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 11px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
   }
+  .checkin-gray { background: #24242c; color: #45454f; }
+  .checkin-red { background: #3a1717; color: #e57373; }
+  .checkin-green { background: #16331f; color: #4caf6e; }
+  .checkin-offshift { background: #1a1a22; color: #45454f; opacity: 0.6; }
+  .checkin-holiday { background: #3a2e10; color: #e0c050; }
+
+  .time-cell { font-family: Consolas, monospace; color: #c5c5d0; }
+  .time-cell.idle { color: #6f6f7d; font-family: inherit; }
+  .time-cell.overtime { color: #ff6b6b; font-weight: 600; }
+  .total-time { font-family: Consolas, monospace; color: #6f6f7d; }
 </style>
 </head>
 <body>
 
 <div class="content">
 
-<h1>📋 สถานะพนักงานวันนี้</h1>
+<div class="header-row">
+  <h1>📋 สถานะพนักงานวันนี้</h1>
+  <div class="updated" id="updated"></div>
+</div>
 
 <div class="summary" id="summary"></div>
 
 <div class="table-wrap">
-<table>
-  <thead>
-    <tr>
-      <th>ผู้ใช้</th>
-      <th style="text-align:center;">เช็คชื่อ</th>
-      <th style="text-align:center;">สถานะ</th>
-      <th>เวลา</th>
-    </tr>
-  </thead>
-  <tbody id="table-body"></tbody>
-</table>
+  <table>
+    <thead>
+      <tr>
+        <th>ผู้ใช้</th>
+        <th>เช็คชื่อ รอบ 1/2</th>
+        <th>เวลานับ</th>
+        <th>สถานะ</th>
+        <th>เวลารวมวันนี้</th>
+      </tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+  </table>
 </div>
-
-<div class="updated" id="updated"></div>
 
 </div>
 
@@ -225,56 +232,40 @@ const OVERTIME_LIMITS = {
   "กินข้าว": 30 * 60,
 };
 
-// เก็บรายชื่อคนที่เกินเวลาอยู่แล้ว (กันเสียงดังซ้ำทุกครั้งที่รีเฟรช)
 const overtimeAlerted = new Set();
-// เก็บรายชื่อคนที่เตือนล่วงหน้าไปแล้ว (กันเตือนซ้ำ)
 const warningAlerted = new Set();
 
-// ===== เลือกเสียงพูดภาษาไทยที่ดีที่สุดที่เบราว์เซอร์มีให้ (เป็นธรรมชาติกว่าเสียง default) =====
 let cachedThaiVoice = null;
 function pickThaiVoice() {
   const voices = window.speechSynthesis.getVoices();
   if (!voices || voices.length === 0) return null;
-
   const thaiVoices = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith("th"));
   if (thaiVoices.length === 0) return null;
-
-  // ให้ความสำคัญกับเสียงจาก Google ก่อน (มักจะเป็นธรรมชาติกว่าเสียงระบบของ Windows/macOS)
   const googleVoice = thaiVoices.find(v => v.name.toLowerCase().includes("google"));
   return googleVoice || thaiVoices[0];
 }
-
-// โหลดรายชื่อเสียงทันทีที่พร้อม (บางเบราว์เซอร์โหลดแบบ async)
 if (window.speechSynthesis) {
   cachedThaiVoice = pickThaiVoice();
-  window.speechSynthesis.onvoiceschanged = () => {
-    cachedThaiVoice = pickThaiVoice();
-  };
+  window.speechSynthesis.onvoiceschanged = () => { cachedThaiVoice = pickThaiVoice(); };
 }
 
 function speakText(text) {
   try {
-    // ยกเลิกคิวเสียงเก่าก่อนพูดใหม่ทุกครั้ง กันปัญหาเสียงพูดขาด/ค้างจาก browser bug
     window.speechSynthesis.cancel();
-
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = "th-TH";
     if (cachedThaiVoice) utter.voice = cachedThaiVoice;
     utter.rate = 0.95;
     utter.pitch = 1;
-
-    // หน่วงเล็กน้อยก่อนพูด กัน bug ของ Chrome ที่บางทีพูดขาดถ้า speak() ติดกับ cancel() เกินไป
     setTimeout(() => window.speechSynthesis.speak(utter), 80);
   } catch (err) {
     console.warn("พูดเสียงเตือนไม่ได้", err);
   }
 }
-
 function speakAlert(username, activity) {
   const shortName = username.split("-").slice(0, 2).join(" ");
   speakText(`${shortName} เกินเวลา${activity}แล้ว รีบกลับที่นั่งให้ไว`);
 }
-
 function speakWarning(username, activity) {
   const shortName = username.split("-").slice(0, 2).join(" ");
   speakText(`${shortName} จะเกินเวลา${activity}แล้ว ให้รีบกดกลับครับ`);
@@ -289,6 +280,7 @@ function badgeClass(status) {
 }
 
 function formatDuration(seconds) {
+  seconds = Math.max(0, Math.floor(seconds));
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
@@ -299,6 +291,19 @@ function formatAgo(seconds) {
   const m = Math.floor(seconds / 60);
   if (m < 1) return "กลับมาเมื่อสักครู่";
   return `กลับมา ${m} นาทีที่แล้ว`;
+}
+
+function roundIconHtml(round, roundNum) {
+  if (round.status === "green") {
+    return `<span class="checkin-col">
+      <span class="checkin-badge checkin-green" title="รอบ ${roundNum}">✓</span>
+      ${round.time ? `<span class="checkin-time">${round.time}</span>` : ""}
+    </span>`;
+  }
+  if (round.status === "red") {
+    return `<span class="checkin-col"><span class="checkin-badge checkin-red" title="รอบ ${roundNum} ยังไม่เช็คชื่อ">!</span></span>`;
+  }
+  return `<span class="checkin-col"><span class="checkin-badge checkin-gray" title="รอบ ${roundNum} ยังไม่ประกาศ">·</span></span>`;
 }
 
 async function loadData() {
@@ -336,11 +341,10 @@ async function loadData() {
       const aActive = a.status !== "กลับที่นั่ง";
       const bActive = b.status !== "กลับที่นั่ง";
       if (aActive !== bActive) return aActive ? -1 : 1;
-      if (!aActive && !bActive) return a.duration_seconds - b.duration_seconds; // กลับล่าสุดอยู่บน
+      if (!aActive && !bActive) return a.duration_seconds - b.duration_seconds;
       return 0;
     });
 
-    // เช็คว่ามีใครเพิ่งเกินเวลาใหม่ในรอบนี้ไหม เพื่อพูดเสียงเตือน
     const newOvertimePeople = [];
     const newWarningPeople = [];
     const currentOvertimeUsers = new Set();
@@ -354,25 +358,16 @@ async function loadData() {
 
       if (isOvertime) {
         currentOvertimeUsers.add(p.user_id);
-        if (!overtimeAlerted.has(p.user_id)) {
-          newOvertimePeople.push({ username: p.username, activity: p.status });
-        }
+        if (!overtimeAlerted.has(p.user_id)) newOvertimePeople.push({ username: p.username, activity: p.status });
       } else if (isNearLimit) {
         currentWarningUsers.add(p.user_id);
-        if (!warningAlerted.has(p.user_id)) {
-          newWarningPeople.push({ username: p.username, activity: p.status });
-        }
+        if (!warningAlerted.has(p.user_id)) newWarningPeople.push({ username: p.username, activity: p.status });
       }
     });
 
-    newWarningPeople.forEach((p, i) => {
-      setTimeout(() => speakWarning(p.username, p.activity), i * 3000);
-    });
-    newOvertimePeople.forEach((p, i) => {
-      setTimeout(() => speakAlert(p.username, p.activity), (newWarningPeople.length + i) * 3000);
-    });
+    newWarningPeople.forEach((p, i) => setTimeout(() => speakWarning(p.username, p.activity), i * 3000));
+    newOvertimePeople.forEach((p, i) => setTimeout(() => speakAlert(p.username, p.activity), (newWarningPeople.length + i) * 3000));
 
-    // อัปเดต set คนที่เกินเวลา/ใกล้เกินอยู่ (ลบคนที่กลับที่นั่งแล้วออก เผื่อรอบหน้าเตือนใหม่)
     overtimeAlerted.clear();
     currentOvertimeUsers.forEach(id => overtimeAlerted.add(id));
     warningAlerted.clear();
@@ -391,23 +386,13 @@ async function loadData() {
       const timeHtml = isBack
         ? `<span class="time-cell idle">${formatAgo(p.duration_seconds)}</span>`
         : isOvertime
-          ? `<span class="time-cell">+${formatDuration(p.duration_seconds - limit)}</span>`
+          ? `<span class="time-cell overtime">+${formatDuration(p.duration_seconds - limit)}</span>`
           : limit
             ? `<span class="time-cell">${formatDuration(limit - p.duration_seconds)}</span>`
             : `<span class="time-cell">${formatDuration(p.duration_seconds)}</span>`;
 
       const isHoliday = p.checkin && p.checkin.round1.status === "holiday";
       const isOffshift = p.checkin && p.checkin.round1.status === "offshift";
-
-      function roundIconHtml(round, roundNum) {
-        if (round.status === "green") {
-          return `<span class="checkin-badge checkin-green" title="รอบ ${roundNum} · ${round.time || ''}">✓</span>`;
-        }
-        if (round.status === "red") {
-          return `<span class="checkin-badge checkin-red" title="รอบ ${roundNum} · ยังไม่เช็คชื่อ">!</span>`;
-        }
-        return `<span class="checkin-badge checkin-gray" title="รอบ ${roundNum} · ยังไม่ประกาศ">·</span>`;
-      }
 
       let checkinHtml;
       if (!p.checkin) {
@@ -417,30 +402,21 @@ async function loadData() {
       } else if (isOffshift) {
         checkinHtml = `<span class="checkin-wide checkin-offshift">ไม่ใช่กะนี้</span>`;
       } else {
-        checkinHtml = `${roundIconHtml(p.checkin.round1, 1)} ${roundIconHtml(p.checkin.round2, 2)}`;
+        checkinHtml = `<span class="checkin-icons">${roundIconHtml(p.checkin.round1, 1)}${roundIconHtml(p.checkin.round2, 2)}</span>`;
       }
 
       return `
         <tr class="${rowCls}">
-          <td>
-            <div class="user-cell">
-              ${p.username}
-              <span style="color:#6f6f7d; font-size:12px; font-family:Consolas,monospace; margin-left:8px;">
-                (${formatDuration(p.total_today_seconds || 0)})
-              </span>
-            </div>
-          </td>
-          <td style="text-align:center;">${checkinHtml}</td>
-          <td style="text-align:center;">
-            <span class="badge ${badgeCls}">${warnIcon}${displayLabel}</span>
-          </td>
+          <td><span class="username">${p.username}</span></td>
+          <td>${checkinHtml}</td>
           <td>${timeHtml}</td>
+          <td><span class="badge ${badgeCls}">${warnIcon}${displayLabel}</span></td>
+          <td><span class="total-time">${formatDuration(p.total_today_seconds || 0)}</span></td>
         </tr>
       `;
     }).join("");
 
-    document.getElementById("updated").textContent =
-      "อัปเดตล่าสุด: " + new Date().toLocaleTimeString("th-TH");
+    document.getElementById("updated").textContent = "อัปเดตล่าสุด: " + new Date().toLocaleTimeString("th-TH");
   } catch (err) {
     console.error("โหลดข้อมูลไม่สำเร็จ", err);
   }
