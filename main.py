@@ -366,12 +366,18 @@ def api_status():
 
     # ===== ข้อมูลเช็คชื่อ (รอบที่ 1 / รอบที่ 2 ของกะปัจจุบัน) =====
     round1_label, round2_label = get_current_shift_rounds(now)
+    current_period_start = get_period_start(now)
 
     cur.execute(
         "SELECT round_label, announced_at FROM round_status WHERE round_label IN (%s, %s)",
         (round1_label, round2_label),
     )
-    announced_map = {r["round_label"]: r["announced_at"] for r in cur.fetchall()}
+    # ตัดประกาศเก่าที่มาจากก่อนรอบกะปัจจุบันออก (เช่น ประกาศของเมื่อวาน) ถือว่ายังไม่ได้ประกาศในรอบนี้
+    announced_map = {
+        r["round_label"]: r["announced_at"]
+        for r in cur.fetchall()
+        if r["announced_at"] and r["announced_at"] >= current_period_start
+    }
 
     user_ids = [p["user_id"] for p in people]
     checkin_map = {}
