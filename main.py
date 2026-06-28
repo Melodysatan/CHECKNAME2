@@ -14,7 +14,7 @@ import psycopg2.extras
 
 from telethon import TelegramClient, events
 from telethon.sessions import StringSession
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 
 # ----- ตั้งค่า -----
@@ -146,8 +146,13 @@ def get_period_start(now):
     return period_start_bkk.astimezone(timezone.utc)
 
 
-def get_current_shift_rounds(now):
-    """คืนชื่อ 2 รอบของกะปัจจุบัน (เช้า หรือ ดึก) ตามเวลาไทย"""
+def get_current_shift_rounds(now, override=None):
+    """คืนชื่อ 2 รอบของกะ — ถ้าระบุ override ('เช้า'/'ดึก') จะใช้กะนั้นแทนเวลาจริง"""
+    if override == "เช้า":
+        return ROUND_LABELS[0], ROUND_LABELS[1]
+    if override == "ดึก":
+        return ROUND_LABELS[2], ROUND_LABELS[3]
+
     now_bkk = now.astimezone(BANGKOK_TZ)
     is_day_shift = (now_bkk.hour, now_bkk.minute) >= (8, 5) and (now_bkk.hour, now_bkk.minute) < (20, 5)
     if is_day_shift:
@@ -300,6 +305,10 @@ def serve_dashboard():
 
 @app.route("/api/status")
 def api_status():
+    shift_override = request.args.get("shift")
+    if shift_override not in ("เช้า", "ดึก"):
+        shift_override = None
+
     conn = get_conn()
     cur = conn.cursor()
 
@@ -365,7 +374,7 @@ def api_status():
     out_count = sum(1 for p in people if p["status"] != "กลับที่นั่ง")
 
     # ===== ข้อมูลเช็คชื่อ (รอบที่ 1 / รอบที่ 2 ของกะปัจจุบัน) =====
-    round1_label, round2_label = get_current_shift_rounds(now)
+    round1_label, round2_label = get_current_shift_rounds(now, override=shift_override)
     current_period_start = get_period_start(now)
 
     cur.execute(
@@ -405,7 +414,10 @@ def api_status():
         return "red", None
 
     now_bkk = now.astimezone(BANGKOK_TZ)
-    current_shift = "เช้า" if (8, 5) <= (now_bkk.hour, now_bkk.minute) < (20, 5) else "ดึก"
+    if shift_override in ("เช้า", "ดึก"):
+        current_shift = shift_override
+    else:
+        current_shift = "เช้า" if (8, 5) <= (now_bkk.hour, now_bkk.minute) < (20, 5) else "ดึก"
     shift_map = load_shift_map()
 
     for p in people:
@@ -431,6 +443,8 @@ def api_status():
     return jsonify({
         "people": people,
         "summary": {"out_now": out_count, "activity_counts_today": activity_counts},
+        "current_shift": current_shift,
+        "is_override": shift_override is not None,
     })
 
 
