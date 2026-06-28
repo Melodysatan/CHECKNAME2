@@ -52,6 +52,54 @@
     color: #6f6f7d;
   }
 
+  .shift-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .shift-btn {
+    background: #1a1a22;
+    border: 1px solid #2a2a35;
+    color: #9a9aa8;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+  .shift-btn:hover {
+    background: #24242e;
+    color: #d5d5dd;
+    transform: translateY(-1px);
+  }
+  .shift-btn.active {
+    background: #3a3aff22;
+    border-color: #6366f1;
+    color: #a5a8ff;
+  }
+
+  /* ===== อนิเมชั่นทั่วเว็บให้ลื่นไหลขึ้น ===== */
+  .summary-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+  }
+  .summary-card .value {
+    transition: color 0.3s ease;
+  }
+  .table-wrap {
+    transition: box-shadow 0.2s ease;
+    animation: fadeInUp 0.4s ease;
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   .summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -189,6 +237,12 @@
   <div class="updated" id="updated"></div>
 </div>
 
+<div class="shift-selector" id="shift-selector">
+  <button class="shift-btn" data-shift="auto">อัตโนมัติ</button>
+  <button class="shift-btn" data-shift="เช้า">กะเช้า</button>
+  <button class="shift-btn" data-shift="ดึก">กะดึก</button>
+</div>
+
 <div class="summary" id="summary"></div>
 
 <div class="table-wrap">
@@ -210,6 +264,21 @@
 
 <script>
 const API_URL = "/api/status";
+let selectedShift = "auto";
+
+function setupShiftSelector() {
+  const buttons = document.querySelectorAll(".shift-btn");
+  buttons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      selectedShift = btn.dataset.shift;
+      buttons.forEach(b => b.classList.toggle("active", b === btn));
+      loadData(); // โหลดใหม่ทันทีไม่ต้องรอ
+    });
+  });
+  // ตั้งค่า default ให้ปุ่ม "อัตโนมัติ" active ไว้ก่อน
+  document.querySelector('.shift-btn[data-shift="auto"]').classList.add("active");
+}
+setupShiftSelector();
 const FLOAT_EMOJIS = ["🎉", "✨", "🌴", "💧", "🟦", "🟡", "🌟", "🍃"];
 
 function spawnEmoji() {
@@ -308,8 +377,15 @@ function roundIconHtml(round, roundNum) {
 
 async function loadData() {
   try {
-    const res = await fetch(API_URL);
+    const url = selectedShift === "auto" ? API_URL : `${API_URL}?shift=${encodeURIComponent(selectedShift)}`;
+    const res = await fetch(url);
     const data = await res.json();
+
+    // อัปเดตปุ่ม "อัตโนมัติ" ให้บอกว่าตอนนี้กะจริงคือกะไหน
+    const autoBtn = document.querySelector('.shift-btn[data-shift="auto"]');
+    if (autoBtn && data.current_shift) {
+      autoBtn.textContent = selectedShift === "auto" ? `อัตโนมัติ (${data.current_shift})` : "อัตโนมัติ";
+    }
 
     const summaryEl = document.getElementById("summary");
     summaryEl.innerHTML = `
