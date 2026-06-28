@@ -433,6 +433,12 @@ def api_status():
 
         r1_status, r1_time = round_status_for(p["user_id"], round1_label, is_round1=True)
         r2_status, r2_time = round_status_for(p["user_id"], round2_label)
+
+        # ถ้าเช็คชื่อรอบ 2 ผ่านแล้ว ถือว่ารอบ 1 ผ่านไปด้วยอัตโนมัติ
+        # (กันเคสรอบ 1 มีปัญหา/บั๊ก ทั้งที่จริงเข้างานแล้วแน่นอนเพราะเช็ครอบ 2 ได้)
+        if r2_status == "green" and r1_status != "green":
+            r1_status = "green"
+            r1_time = r2_time
         p["checkin"] = {
             "round1": {"label": "เช็คชื่อรอบที่ 1", "status": r1_status, "time": r1_time},
             "round2": {"label": "เช็คชื่อรอบที่ 2", "status": r2_status, "time": r2_time},
