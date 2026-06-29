@@ -1,6 +1,5 @@
 import os
 import re
-import json
 import threading
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -70,17 +69,18 @@ CORS(app)
 EXCLUDE_SQL = " AND " + " AND ".join("username NOT LIKE %s" for _ in EXCLUDED_SUFFIXES)
 EXCLUDE_PARAMS = tuple(f"%{suf}" for suf in EXCLUDED_SUFFIXES)
 
-SHIFT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "shift_assignments.json")
-
-
 def load_shift_map():
-    """โหลดไฟล์รายชื่อกะ (username -> 'เช้า'/'ดึก') ใหม่ทุกครั้งที่เรียก
-    เพื่อให้แก้ไฟล์แล้วเห็นผลทันทีโดยไม่ต้อง restart service"""
+    """โหลดรายชื่อกะ (username -> 'เช้า'/'ดึก') จาก PostgreSQL"""
     try:
-        with open(SHIFT_FILE, "r", encoding="utf-8") as f:
-            raw = json.load(f)
-        return {k: v for k, v in raw.items() if not k.startswith("_")}
-    except (FileNotFoundError, json.JSONDecodeError):
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT username, shift FROM shift_assignments")
+        result = {r["username"]: r["shift"] for r in cur.fetchall()}
+        cur.close()
+        conn.close()
+        return result
+    except Exception as e:
+        print(f"โหลดข้อมูลกะไม่สำเร็จ: {e}")
         return {}
 
 
@@ -121,6 +121,12 @@ def init_db():
             round_label TEXT,
             checked_at TIMESTAMPTZ,
             PRIMARY KEY (user_id, round_label)
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS shift_assignments (
+            username TEXT PRIMARY KEY,
+            shift TEXT
         )
     """)
     conn.commit()
@@ -301,6 +307,63 @@ async def handler(event):
 @app.route("/")
 def serve_dashboard():
     return send_from_directory(".", "dashboard.html")
+
+
+@app.route("/shifts")
+def serve_shift_editor():
+    return send_from_directory(".", "shift_editor.html")
+
+
+@app.route("/api/shift-assignments", methods=["GET"])
+def get_shift_assignments():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT username, shift FROM shift_assignments ORDER BY username")
+    assignments = [{"username": r["username"], "shift": r["shift"]} for r in cur.fetchall()]
+
+    # ดึงรายชื่อ username ทั้งหมดที่ระบบเคยเห็น (จาก current_status) มาเป็นตัวช่วยเลือก กันพิมพ์/อิโมจิไม่ตรง
+    cur.execute("SELECT DISTINCT username FROM current_status WHERE username LIKE %s ORDER BY username", ("%ODOL%",))
+    known_usernames = [r["username"] for r in cur.fetchall()]
+
+    cur.close()
+    conn.close()
+    return jsonify({"assignments": assignments, "known_usernames": known_usernames})
+
+
+@app.route("/api/shift-assignments", methods=["POST"])
+def upsert_shift_assignment():
+    data = request.get_json(silent=True) or {}
+    username = (data.get("username") or "").strip()
+    shift = (data.get("shift") or "").strip()
+
+    if not username or shift not in ("เช้า", "ดึก"):
+        return jsonify({"error": "ต้องระบุ username และ shift เป็น 'เช้า' หรือ 'ดึก' เท่านั้น"}), 400
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO shift_assignments (username, shift)
+        VALUES (%s, %s)
+        ON CONFLICT (username) DO UPDATE SET shift = EXCLUDED.shift
+        """,
+        (username, shift),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/shift-assignments/<path:username>", methods=["DELETE"])
+def delete_shift_assignment(username):
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM shift_assignments WHERE username = %s", (username,))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/status")
