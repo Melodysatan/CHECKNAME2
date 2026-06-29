@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>แก้ไขกะพนักงาน</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Tahoma", "Segoe UI", sans-serif;
+    background: #0f0f14;
+    margin: 0;
+    padding: 32px;
+    color: #e6e6e6;
+  }
+  .content { max-width: 700px; margin: 0 auto; }
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 6px;
+    color: #fff;
+  }
+  .back-link {
+    font-size: 13px;
+    color: #9a9aa8;
+    text-decoration: none;
+  }
+  .back-link:hover { color: #fff; }
+
+  .add-form {
+    background: #15151a;
+    border: 1px solid #2a2a35;
+    border-radius: 14px;
+    padding: 18px;
+    margin: 20px 0;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  select, input {
+    background: #1a1a22;
+    border: 1px solid #2a2a35;
+    color: #e6e6e6;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  input[list] { width: 240px; }
+  select { width: 110px; }
+  button {
+    background: #6366f1;
+    border: none;
+    color: #fff;
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: #5457e0; }
+
+  .table-wrap {
+    background: #15151a;
+    border: 1px solid #2a2a35;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 12px 16px; font-size: 13px; text-align: left; }
+  th { background: #1a1a22; color: #9a9aa8; font-weight: 500; }
+  tr { border-bottom: 1px solid #21212a; }
+  tr:last-child { border-bottom: none; }
+  .shift-tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .shift-เช้า { background: #16331f; color: #4caf6e; }
+  .shift-ดึก { background: #1a1a3a; color: #8a8aff; }
+  .delete-btn {
+    background: #3a1717;
+    color: #e57373;
+    border: none;
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .delete-btn:hover { background: #4a1a1a; }
+  .empty-msg { padding: 20px; text-align: center; color: #6f6f7d; font-size: 13px; }
+  .status-msg { font-size: 13px; margin: 10px 0; min-height: 18px; }
+  .status-msg.error { color: #e57373; }
+  .status-msg.success { color: #4caf6e; }
+</style>
+</head>
+<body>
+
+<div class="content">
+  <a href="/" class="back-link">← กลับหน้าแดชบอร์ด</a>
+  <h1 style="margin-top:8px;">⚙️ แก้ไขกะพนักงาน</h1>
+  <p style="font-size:13px; color:#9a9aa8; margin:6px 0 0;">เลือกชื่อจาก dropdown เพื่อกันพิมพ์/อิโมจิไม่ตรง แล้วเลือกกะ กดบันทึก</p>
+
+  <div class="add-form">
+    <input list="username-options" id="username-input" placeholder="พิมพ์หรือเลือกชื่อ ODOL">
+    <datalist id="username-options"></datalist>
+    <select id="shift-input">
+      <option value="เช้า">เช้า</option>
+      <option value="ดึก">ดึก</option>
+    </select>
+    <button onclick="saveAssignment()">บันทึก</button>
+  </div>
+
+  <div class="status-msg" id="status-msg"></div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ชื่อ ODOL</th><th>กะ</th><th></th></tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function loadAssignments() {
+  const res = await fetch("/api/shift-assignments");
+  const data = await res.json();
+
+  const datalist = document.getElementById("username-options");
+  datalist.innerHTML = data.known_usernames.map(u => `<option value="${u}"></option>`).join("");
+
+  const tbody = document.getElementById("table-body");
+  if (data.assignments.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">ยังไม่มีรายชื่อ เริ่มเพิ่มได้จากฟอร์มด้านบน</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.assignments.map(a => `
+    <tr>
+      <td>${a.username}</td>
+      <td><span class="shift-tag shift-${a.shift}">${a.shift}</span></td>
+      <td><button class="delete-btn" onclick="deleteAssignment('${a.username.replace(/'/g, "\\'")}')">ลบ</button></td>
+    </tr>
+  `).join("");
+}
+
+async function saveAssignment() {
+  const username = document.getElementById("username-input").value.trim();
+  const shift = document.getElementById("shift-input").value;
+  const msgEl = document.getElementById("status-msg");
+
+  if (!username) {
+    msgEl.textContent = "กรุณาเลือกหรือพิมพ์ชื่อก่อน";
+    msgEl.className = "status-msg error";
+    return;
+  }
+
+  try {
+    const res = await fetch("/api/shift-assignments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, shift }),
+    });
+    if (!res.ok) throw new Error("บันทึกไม่สำเร็จ");
+
+    msgEl.textContent = `บันทึก ${username} เป็นกะ${shift} แล้ว`;
+    msgEl.className = "status-msg success";
+    document.getElementById("username-input").value = "";
+    loadAssignments();
+  } catch (err) {
+    msgEl.textContent = "เกิดข้อผิดพลาด: " + err.message;
+    msgEl.className = "status-msg error";
+  }
+}
+
+async function deleteAssignment(username) {
+  if (!confirm(`ลบรายชื่อ ${username} ออกจากตารางกะ?`)) return;
+  await fetch(`/api/shift-assignments/${encodeURIComponent(username)}`, { method: "DELETE" });
+  loadAssignments();
+}
+
+loadAssignments();
+</script>
+
+</body>
+</html>
