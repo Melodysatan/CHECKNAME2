@@ -78,6 +78,19 @@
     font-size: 12px;
     font-weight: 500;
   }
+  .shift-select {
+    background: #1a1a22;
+    border: 1px solid #2a2a35;
+    color: #e6e6e6;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .shift-select.shift-เช้า { color: #4caf6e; }
+  .shift-select.shift-ดึก { color: #8a8aff; }
   .shift-เช้า { background: #16331f; color: #4caf6e; }
   .shift-ดึก { background: #1a1a3a; color: #8a8aff; }
   .delete-btn {
@@ -142,10 +155,35 @@ async function loadAssignments() {
   tbody.innerHTML = data.assignments.map(a => `
     <tr>
       <td>${a.username}</td>
-      <td><span class="shift-tag shift-${a.shift}">${a.shift}</span></td>
+      <td>
+        <select class="shift-select shift-${a.shift}" onchange="changeShift('${a.username.replace(/'/g, "\\'")}', this.value, this)">
+          <option value="เช้า" ${a.shift === "เช้า" ? "selected" : ""}>เช้า</option>
+          <option value="ดึก" ${a.shift === "ดึก" ? "selected" : ""}>ดึก</option>
+        </select>
+      </td>
       <td><button class="delete-btn" onclick="deleteAssignment('${a.username.replace(/'/g, "\\'")}')">ลบ</button></td>
     </tr>
   `).join("");
+}
+
+async function changeShift(username, newShift, selectEl) {
+  selectEl.className = `shift-select shift-${newShift}`;
+  try {
+    const res = await fetch("/api/shift-assignments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, shift: newShift }),
+    });
+    if (!res.ok) throw new Error("บันทึกไม่สำเร็จ");
+
+    const msgEl = document.getElementById("status-msg");
+    msgEl.textContent = `เปลี่ยน ${username} เป็นกะ${newShift} แล้ว`;
+    msgEl.className = "status-msg success";
+  } catch (err) {
+    const msgEl = document.getElementById("status-msg");
+    msgEl.textContent = "เกิดข้อผิดพลาด: " + err.message;
+    msgEl.className = "status-msg error";
+  }
 }
 
 async function saveAssignment() {
